@@ -208,16 +208,25 @@ def clean_elf():
 
 def run_ndk_build(flags):
     os.chdir('native')
-    flags = 'NDK_PROJECT_PATH=. NDK_APPLICATION_MK=src/Application.mk ' + flags
-    proc = system(f'{ndk_build} {flags} -j{cpu_count}')
-    if proc.returncode != 0:
-        error('Build binary failed!')
-    os.chdir('..')
-    for arch in archs:
-        for tgt in support_targets + ['libinit-ld.so', 'libzygisk-ld.so']:
-            source = op.join('native', 'libs', arch, tgt)
-            target = op.join('native', 'out', arch, tgt)
-            mv(source, target)
+
+    ff = flags.split(" ")
+    ff = list(set(ff))
+    for f in ff:
+        f = f.strip()
+        if f != "":
+            header('* Building binaries: with ' + f)
+
+            flags = 'GEN_COMPILE_COMMANDS_DB=true NDK_PROJECT_PATH=. NDK_APPLICATION_MK=src/Application.mk ' + f
+            proc = system(f'{ndk_build} {flags} -j{cpu_count}')
+            if proc.returncode != 0:
+                error('Build binary failed!')
+            system(f'mv compile_commands.json compile_commands.{f}.json')
+            os.chdir('..')
+            for arch in archs:
+                for tgt in support_targets + ['libinit-ld.so', 'libzygisk-ld.so']:
+                    source = op.join('native', 'libs', arch, tgt)
+                    target = op.join('native', 'out', arch, tgt)
+                    mv(source, target)
 
 
 def run_cargo_build(args):
