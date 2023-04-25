@@ -266,6 +266,7 @@ bool check_two_stage() {
     return init.contains("selinux_setup");
 }
 
+// 获取 ramdisk 中备份的原生 init 可执行程序的存储路径
 const char *backup_init() {
     if (access("/.backup/init.real", F_OK) == 0)
         return "/.backup/init.real";

@@ -47,13 +47,19 @@ static int dump_bin(const uint8_t *buf, size_t sz, const char *path, mode_t mode
     return 0;
 }
 
+// 从ramdisk中备份的原生init恢复原生init
 void restore_ramdisk_init() {
     unlink("/init");
 
+    // 获取原生init的路径
     const char *orig_init = backup_init();
     if (access(orig_init, F_OK) == 0) {
+        // 移动 原生init 到 /init
         xrename(orig_init, "/init");
     } else {
+        // 如果缺少备份的init，这意味着 boot ramdisk是从头开始创建的，
+        // 而真正的init在一个单独的CPIO中，保证放在/system/bin/init
+        // 该流程忽略
         // If the backup init is missing, this means that the boot ramdisk
         // was created from scratch, and the real init is in a separate CPIO,
         // which is guaranteed to be placed at /system/bin/init.
@@ -68,6 +74,7 @@ int dump_preload(const char *path, mode_t mode) {
 class RecoveryInit : public BaseInit {
 public:
     using BaseInit::BaseInit;
+
     void start() override {
         LOGD("Ramdisk is recovery, abort\n");
         restore_ramdisk_init();
@@ -95,16 +102,27 @@ int main(int argc, char *argv[]) {
         // This will also mount /sys and /proc
         load_kernel_info(&config);
 
-        if (config.skip_initramfs)
+        file_readline("/proc/self/mountinfo", [&](string_view s) {
+            LOGD("mountinfo %s", s.data());
+            return true;
+        });
+
+        if (config.skip_initramfs) {
+            LOGD("config.skip_initramfs");
             init = new LegacySARInit(argv, &config);
-        else if (config.force_normal_boot)
+        } else if (config.force_normal_boot) {
+            LOGD("config.force_normal_boot");
             init = new FirstStageInit(argv, &config);
-        else if (access("/sbin/recovery", F_OK) == 0 || access("/system/bin/recovery", F_OK) == 0)
+        } else if (access("/sbin/recovery", F_OK) == 0 || access("/system/bin/recovery", F_OK) == 0) {
+            LOGD("/sbin/recovery or /system/bin/recovery exists!");
             init = new RecoveryInit(argv, &config);
-        else if (check_two_stage())
+        } else if (check_two_stage()) {
+            LOGD("check_two_stage");
             init = new FirstStageInit(argv, &config);
-        else
+        } else {
+            LOGD("else!!");
             init = new RootFSInit(argv, &config);
+        }
     }
 
     // Run the main routine

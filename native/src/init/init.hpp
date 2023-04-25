@@ -89,7 +89,15 @@ public:
         LOGD("%s\n", __FUNCTION__);
     };
     void start() override {
+        file_readline("/proc/self/mountinfo", [&](std::string_view s) {
+            LOGD("mountinfo1 %s", s.data());
+            return true;
+        });
         prepare();
+        file_readline("/proc/self/mountinfo", [&](std::string_view s) {
+            LOGD("mountinfo2 %s", s.data());
+            return true;
+        });
         exec_init();
     }
 };

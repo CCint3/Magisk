@@ -9,12 +9,24 @@
 
 using namespace std;
 
+// 一阶段的准备工作
+// 1. 拷贝 ramdisk 中与magisk相关的文件到 /data tmpfs 中
+// 2. 寻找原生 init 可执行程序并恢复, 准备执行原生 init
+// 3. 对原生 init 可执行程序写入补丁, 替换字符串
 void FirstStageInit::prepare() {
     prepare_data();
     restore_ramdisk_init();
+    // 使用 mmap 加载原生init可执行程序到内存中, 并生成 mmap_data 类的对象
     auto init = mmap_data("/init", true);
+
+    // 搜索内存, 将 `/system/bin/init` 字符串替换为 `/data/magiskinit`
+    // 这里的内存是原生init可执行程序, 需要注意的是, 替换前后的两个字符串长度相同
+    // 因为是通过 mmap fd 的形式加载到内存, 因此对内存的更改可以直接反应到文件本身.
     // Redirect original init to magiskinit
     init.patch({ make_pair(INIT_PATH, REDIR_PATH) });
+
+    // 因为 init 是 mmap_data 类的局部对象, 因此离开作用域后会自动析构.
+    // mmap_data 的析构函数中会调用 munmap 释放内存
 }
 
 void LegacySARInit::first_stage_prep() {

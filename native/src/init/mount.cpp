@@ -246,13 +246,35 @@ void BaseInit::exec_init() {
     exit(1);
 }
 
+// 创建 /data tmpfs 目录
+// 并将 ramdisk 中与 magisk 相关的文件全部复制到 /data tmpfs 目录中.
 void BaseInit::prepare_data() {
     LOGD("Setup data tmp\n");
     xmkdir("/data", 0755);
+
+    // mount -t tmpfs magisk /data -o mode=755
+    // source 参数是 "magisk", 这个参数会导致 /proc/mounts 中显示 `magisk /data tmpfs xxx`
     xmount("magisk", "/data", "tmpfs", 0, "mode=755");
 
+    // 以下代码可以参考 boot_patch.sh 脚本
+    // https://github.com/topjohnwu/Magisk/blob/83d837d868cf73e931f54951dcb582845f979f28/scripts/boot_patch.sh#L179
+
+    // cp -afc ramdisk/init /data/magiskinit
+    // ramdisk/init 被替换为 magiskinit
     cp_afc("/init", "/data/magiskinit");
+
+    // cp -afc ramdisk/.backup /data/.backup
+    // ramdisk/.backup 目录存储了以下内容:
+    //   .magisk: config信息, 由刷机脚本收集
+    //   .rmlist: 卸载magisk时需要从ramdisk中移除的文件列表
+    //   init: 原生init可执行程序
     cp_afc("/.backup", "/data/.backup");
+
+    // cp -afc ramdisk/overlay.d /data/overlay.d
+    // ramdisk/overlay.d 目录存储了以下内容:
+    //   sbin/magisk32.xz: 32位的 magisk 可执行程序
+    //   sbin/magisk64.xz: 64位的 magisk 可执行程序
+    //   sbin/stub.xz: magisk 的 stub app, 仅提供 root 授权功能.
     cp_afc("/overlay.d", "/data/overlay.d");
 }
 
