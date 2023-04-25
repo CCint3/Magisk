@@ -16,3 +16,5 @@ native/out
 /.idea
 /build
 /captures
+
+venv
